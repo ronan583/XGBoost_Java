@@ -1,6 +1,7 @@
 package weka.classifiers.meta;
 
 import weka.classifiers.RandomizableIteratedSingleClassifierEnhancer;
+import weka.classifiers.trees.TestTree;
 import weka.core.*;
 
 import java.io.Serializable;
@@ -37,7 +38,8 @@ public class XGBoost extends RandomizableIteratedSingleClassifierEnhancer {
     protected String defaultClassifierString() { return "weka.classifiers.trees.XGBoostTree"; }
 
     /** Default constructor setting the default classifier. */
-    public XGBoost() { m_Classifier = new weka.classifiers.trees.XGBoostTree(); }
+//    public XGBoost() { m_Classifier = new weka.classifiers.trees.XGBoostTree(); }
+    public XGBoost() { m_Classifier = new TestTree(); }
 
     /** Interface implemented by loss functions. */
     private interface LossFunction extends Serializable {
@@ -122,4 +124,10 @@ public class XGBoost extends RandomizableIteratedSingleClassifierEnhancer {
             text.append(m_Classifiers[i].toString() + "\n\n");
         return text.toString();
     }
+
+    /** The main method for running this classifier from a command-line interface. */
+    public static void main(String[] options) {
+        runClassifier(new XGBoost(), options);
+    }
+
 }

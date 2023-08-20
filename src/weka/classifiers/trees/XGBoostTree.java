@@ -14,7 +14,7 @@ import java.util.stream.IntStream;
  * WEKA classifiers (and this includes learning algorithms that build regression models!)
  * should simply extend AbstractClassifier.
  */
-public class XGBoostTree extends RandomizableClassifier {
+public class XGBoostTree extends RandomizableClassifier implements WeightedInstancesHandler {
 
     /** A possible way to represent the tree structure using Java records. */
     private interface Node { }
