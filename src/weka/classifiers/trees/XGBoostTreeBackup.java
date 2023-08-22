@@ -1,6 +1,5 @@
 package weka.classifiers.trees;
 
-import weka.classifiers.AbstractClassifier;
 import weka.classifiers.RandomizableClassifier;
 import weka.core.*;
 
@@ -14,7 +13,7 @@ import java.util.stream.IntStream;
  * WEKA classifiers (and this includes learning algorithms that build regression models!)
  * should simply extend AbstractClassifier.
  */
-public class XGBoostTree extends RandomizableClassifier implements WeightedInstancesHandler {
+public class XGBoostTreeBackup extends RandomizableClassifier implements WeightedInstancesHandler {
 
     /** A possible way to represent the tree structure using Java records. */
     private interface Node { }
@@ -43,17 +42,6 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
     private class SufficientStatistics {
         private int n = 0; private double sum = 0.0; private double sumOfSquares = 0.0;
         private SufficientStatistics(int n, double sum, double sumOfSquares) {
-            this.n = n; this.sum = sum; this.sumOfSquares = sumOfSquares;
-        }
-        private void updateStats(double classValue, boolean add) {
-            n = (add) ? n + 1 : n - 1;
-            sum = (add) ? sum + classValue : sum - classValue;
-            sumOfSquares = (add) ? sumOfSquares + classValue * classValue : sumOfSquares - classValue * classValue;
-        }
-    }
-    private class SufficientStatisticsXg {
-        private int n = 0; private double sum = 0.0; private double sumOfSquares = 0.0;
-        private SufficientStatisticsXg(int n, double sum, double sumOfSquares) {
             this.n = n; this.sum = sum; this.sumOfSquares = sumOfSquares;
         }
         private void updateStats(double classValue, boolean add) {
@@ -217,6 +205,6 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
 
     /** The main method for running this classifier from a command-line interface. */
     public static void main(String[] options) {
-        runClassifier(new XGBoostTree(), options);
+        runClassifier(new XGBoostTreeBackup(), options);
     }
 }
