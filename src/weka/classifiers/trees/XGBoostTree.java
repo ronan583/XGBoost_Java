@@ -16,6 +16,8 @@ import java.util.stream.IntStream;
  */
 public class XGBoostTree extends RandomizableClassifier implements WeightedInstancesHandler {
 
+    public double LAMBDA = 1;
+
     /** A possible way to represent the tree structure using Java records. */
     private interface Node { }
     private record InternalNode(Attribute attribute, double splitPoint, Node leftSuccessor, Node rightSuccessor)
@@ -52,20 +54,25 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
         }
     }
     private class SufficientStatisticsXg {
-        private int n = 0; private double sum = 0.0; private double sumOfSquares = 0.0;
-        private SufficientStatisticsXg(int n, double sum, double sumOfSquares) {
-            this.n = n; this.sum = sum; this.sumOfSquares = sumOfSquares;
+        private int n = 0; private double sum = 0.0; private double sumOfGrad = 0.0; private double sumOfHess = 0.0;
+        private SufficientStatisticsXg(int n, double sum, double sumOfGrad, double sumOfHess) {
+            this.n = n; this.sum = sum; this.sumOfGrad = sumOfGrad; this.sumOfHess = sumOfHess;
         }
-        private void updateStats(double classValue, boolean add) {
+        private void updateStats(double grad, double hess, boolean add) {
             n = (add) ? n + 1 : n - 1;
-            sum = (add) ? sum + classValue : sum - classValue;
-            sumOfSquares = (add) ? sumOfSquares + classValue * classValue : sumOfSquares - classValue * classValue;
+            sumOfGrad = (add) ? sumOfGrad + grad : sumOfGrad - grad;
+            sumOfHess = (add) ? sumOfHess + hess : sumOfHess - hess;
         }
     }
 
     /** Computes the sum of squared deviations from the mean based on the sufficient statistics provided. */
     private double sumOfSquaredDeviationsFromTheMean(SufficientStatistics stats) {
         return stats.sumOfSquares - stats.sum * stats.sum / stats.n;
+    }
+
+    /** Computes w* */
+    private double calcWeight(double sumG, double sumH){
+        return (sumG / (sumH + LAMBDA) * (-1));
     }
 
     /**
@@ -79,6 +86,13 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
         return sumOfSquaredDeviationsFromTheMean(initialSufficientStatistics) -
                 (sumOfSquaredDeviationsFromTheMean(statsLeft) + sumOfSquaredDeviationsFromTheMean(statsRight));
     }
+    private double splitQualityXg(SufficientStatisticsXg initialSufficientStatistics,
+                                  SufficientStatisticsXg statsLeft, SufficientStatisticsXg statsRight) {
+        return (statsLeft.sumOfGrad * statsLeft.sumOfGrad / (statsLeft.sumOfHess * statsLeft.sumOfHess + LAMBDA)) +
+                (statsRight.sumOfGrad * statsRight.sumOfGrad / (statsRight.sumOfHess * statsRight.sumOfHess + LAMBDA)) -
+                ((statsLeft.sumOfGrad + statsRight.sumOfGrad) * (statsLeft.sumOfGrad + statsRight.sumOfGrad) /
+                        ((statsLeft.sumOfHess + statsRight.sumOfHess) + LAMBDA));
+    }
 
     /**
      * Finds the best split point and returns the corresponding split specification object. The given indices
@@ -91,8 +105,11 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
         var statsRight = new SufficientStatistics(0, 0.0, 0.0);
         var splitSpecification = new SplitSpecification(attribute, 0.0, Double.NEGATIVE_INFINITY);
         var previousValue = Double.NEGATIVE_INFINITY;
-        for (int i : Arrays.stream(Utils.sortWithNoMissingValues(Arrays.stream(indices).mapToDouble(x ->
-                data.instance(x).value(attribute)).toArray())).map(x -> indices[x]).toArray()) {
+//        var xx = Arrays.stream(indices).mapToDouble(x -> data.instance(x).value(attribute)).toArray();
+//        var xxx = Utils.sortWithNoMissingValues(Arrays.stream(indices).mapToDouble(x ->
+//                data.instance(x).value(attribute)).toArray());
+//        var xxxx = Arrays.stream(Utils.sortWithNoMissingValues(Arrays.stream(indices).mapToDouble(x -> data.instance(x).value(attribute)).toArray())).map(x -> indices[x]).toArray();
+        for (int i : Arrays.stream(Utils.sortWithNoMissingValues(Arrays.stream(indices).mapToDouble(x -> data.instance(x).value(attribute)).toArray())).map(x -> indices[x]).toArray()) {
             Instance instance = data.instance(i);
             if (instance.value(attribute) > previousValue) {
                 var splitQuality = splitQuality(initialStats, statsLeft, statsRight);
@@ -108,17 +125,39 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
         }
         return splitSpecification;
     }
+    private SplitSpecification findBestSplitPointXg(int[] indices, Attribute attribute,
+                                                  SufficientStatisticsXg initialStats) {
+        double gSumLeft = 0; double gSumRight = 0; double hSumLeft = 0; double hSumRight = 0; double gain = 0;
+        var statsLeft = new SufficientStatisticsXg(initialStats.n, initialStats.sum, initialStats.sumOfGrad, initialStats.sumOfHess);
+        var statsRight = new SufficientStatisticsXg(0, 0.0, 0.0, 0.0);
+        var splitSpecification = new SplitSpecification(attribute, 0.0, Double.NEGATIVE_INFINITY);
+        double prevValue = Double.NEGATIVE_INFINITY;
+        for(int i : Arrays.stream(Utils.sortWithNoMissingValues(Arrays.stream(indices).mapToDouble(x ->
+                data.instance(x).value(attribute)).toArray())).map(x -> indices[x]).toArray()){
+            Instance instance = data.instance(i);
+            if(instance.value(attribute) > prevValue) {
+                var splitQuality = splitQualityXg()
+            }
+        }
+        return  null;
+    }
 
     /**
      * Recursively grows a tree for a given set of data.
      */
     private Node makeTree(int[] indices) {
-        var stats = new SufficientStatistics(0, 0.0, 0.0);
-        for (int i : indices) { stats.updateStats(data.instance(i).classValue(),true); }
-        if (stats.n <= 1) { return new LeafNode(stats.sum / stats.n); }
+//        var stats = new SufficientStatistics(0, 0.0, 0.0);
+        var stats = new SufficientStatisticsXg(0, 0.0, 0.0, 0.0);
+//        for (int i : indices) { stats.updateStats(data.instance(i).classValue(),true); }
+        for (int i : indices) {
+//            stats.updateStats(data.instance(i).classValue(),true);
+            stats.updateStats(data.instance(i).classValue(),data.instance(i).weight(), true);
+        }
+//        if (stats.n <= 1) { return new LeafNode(stats.sum / stats.n); }
+        if (stats.n <= 1) { return new LeafNode(this.calcWeight(stats.sumOfGrad, stats.sumOfHess)); }
         var bestSplitSpecification = new SplitSpecification(null, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
         for (Attribute attribute : Collections.list(data.enumerateAttributes())) {
-            var SplitSpecification = findBestSplitPoint(indices, attribute, stats);
+            var SplitSpecification = findBestSplitPointXg(indices, attribute, stats);
             if (SplitSpecification.splitQuality > bestSplitSpecification.splitQuality) {
                 bestSplitSpecification = SplitSpecification;
             }
