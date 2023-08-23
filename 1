@@ -1,0 +1,22 @@
+Tester:     weka.experiment.PairedCorrectedTTester -G 4,5,6 -D 1 -R 2 -S 0.05 -result-matrix "weka.experiment.ResultMatrixPlainText -mean-prec 2 -stddev-prec 2 -col-name-width 0 -row-name-width 25 -mean-width 3 -stddev-width 2 -sig-width 1 -count-width 5 -print-col-names -print-row-names -enum-col-names"
+Analysing:  Percent_correct
+Datasets:   3
+Resultsets: 2
+Confidence: 0.05 (two tailed)
+Sorted by:  -
+Date:       2023/8/24 上午9:56
+
+
+Dataset                   (1) meta.XGBo | (2) sklear
+----------------------------------------------------
+wisconsin-breast-cancer-w(100)    96.37 |    96.35  
+pima_diabetes-weka.filter(100)    75.86 |    73.33  
+iris-weka.filters.unsuper(100)   100.00 |   100.00  
+----------------------------------------------------
+                                (v/ /*) |    (0/3/0)
+
+
+Key:
+(1) meta.XGBoost '-S 1 -I 100 -W trees.XGBoostTree -- -S 1' -862299050221542512
+(2) sklearn.ScikitLearnClassifier '-batch 100 -learner XGBClassifier -parameters \"gamma=0,subsample=0.8,colsample_bynode=1,tree_method=\\\"exact\\\"\" -py-command python -py-path default -server-name none' -6212485658537766441
+
