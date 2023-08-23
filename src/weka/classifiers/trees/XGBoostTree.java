@@ -25,6 +25,15 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
 
     public double SUBSAMPLE = 0.8;
 
+    /**
+     * 随机数seed是怎么回事
+     * 参数写好
+     * experimenter
+     * significance
+     * level at the default value 0.05？？？
+     * runable of code
+     * 在特定参数下的表现实验比较*/
+
     /** A possible way to represent the tree structure using Java records. */
     private interface Node { }
     private record InternalNode(Attribute attribute, double splitPoint, Node leftSuccessor, Node rightSuccessor)
