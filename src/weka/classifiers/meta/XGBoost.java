@@ -91,7 +91,7 @@ public class XGBoost extends RandomizableIteratedSingleClassifierEnhancer {
                 xgBoostInstance.setWeight(loss.hessian(instance, previousPredictions[i]));
                 xgBoostData.add(xgBoostInstance);
             }
-            ((Randomizable)m_Classifier).setSeed(random.nextInt());
+            ((Randomizable)m_Classifiers[j]).setSeed(random.nextInt());
             m_Classifiers[j].buildClassifier(xgBoostData);
             for (int i = 0; i < xgBoostData.numInstances(); i++) {
                 previousPredictions[i] += m_Classifiers[j].classifyInstance(xgBoostData.instance(i));
