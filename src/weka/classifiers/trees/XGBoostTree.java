@@ -8,10 +8,6 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.stream.IntStream;
 
-/**
- * WEKA classifiers (and this includes learning algorithms that build regression models!)
- * should simply extend AbstractClassifier.
- */
 public class XGBoostTree extends RandomizableClassifier implements WeightedInstancesHandler {
 
     /** The hyperparameters for an XGBoost tree. */
@@ -50,15 +46,6 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
             commandLineParamName = "min_child_weight", commandLineParamSynopsis = "-min_child_weight <double>", displayOrder = 7)
     public void setMinChildWeight(double w) { min_child_weight = w; } public double getMinChildWeight() {return min_child_weight; }
 
-    /**
-     * 随机数seed是怎么回事
-     * 参数写好
-     * experimenter
-     * significance
-     * level at the default value 0.05？？？
-     * runable of code
-     * 在特定参数下的表现实验比较*/
-
     /** A possible way to represent the tree structure using Java records. */
     private interface Node { }
     private record InternalNode(Attribute attribute, double splitPoint, Node leftSuccessor, Node rightSuccessor)
@@ -84,9 +71,9 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
      * These statistics are sufficient to compute the sum of squared deviations from the mean.
      */
     private class SufficientStatisticsXg {
-        private int n = 0; private double sum = 0.0; private double sumOfGrad = 0.0; private double sumOfHess = 0.0;
-        private SufficientStatisticsXg(int n, double sum, double sumOfGrad, double sumOfHess) {
-            this.n = n; this.sum = sum; this.sumOfGrad = sumOfGrad; this.sumOfHess = sumOfHess;
+        private int n = 0; private double sumOfGrad = 0.0; private double sumOfHess = 0.0;
+        private SufficientStatisticsXg(int n, double sumOfGrad, double sumOfHess) {
+            this.n = n; this.sumOfGrad = sumOfGrad; this.sumOfHess = sumOfHess;
         }
         private void updateStats(double grad, double hess, boolean add) {
             n = (add) ? n + 1 : n - 1;
@@ -95,7 +82,7 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
         }
     }
 
-    /** Computes w* */
+    /** Computes update of leaf with w* and eta */
     private double calcWeight(double sumG, double sumH){
 //        double update = (sumG / (sumH + lambda) * (-1) * eta);
         double update = (sumG / (sumH + lambda) * eta);
@@ -103,7 +90,7 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
     }
 
     /**
-     * Computes the reduction in the sum of squared errors based on the sufficient statistics provided. The
+     * Computes the Gain based on the sufficient statistics provided. The
      * initialSufficientStatistics are the sufficient statistics based on the data before it is split,
      * statsLeft are the sufficient statistics for the left branch, and statsRight are the sufficient
      * statistics for the right branch.
@@ -133,14 +120,10 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
     private SplitSpecification findBestSplitPointXg(int[] indices, Attribute attribute,
                                                   SufficientStatisticsXg initialStats) {
         double gSumLeft = 0; double gSumRight = 0; double hSumLeft = 0; double hSumRight = 0; double gain = 0;
-        var statsRight = new SufficientStatisticsXg(initialStats.n, initialStats.sum, initialStats.sumOfGrad, initialStats.sumOfHess);
-        var statsLeft = new SufficientStatisticsXg(0, 0.0, 0.0, 0.0);
+        var statsRight = new SufficientStatisticsXg(initialStats.n, initialStats.sumOfGrad, initialStats.sumOfHess);
+        var statsLeft = new SufficientStatisticsXg(0, 0.0, 0.0);
         var splitSpecification = new SplitSpecification(attribute, 0.0, Double.NEGATIVE_INFINITY);
         double prevValue = Double.NEGATIVE_INFINITY;
-        var xx = Arrays.stream(indices).mapToDouble(x -> data.instance(x).value(attribute)).toArray();
-        var xxx = Utils.sortWithNoMissingValues(Arrays.stream(indices).mapToDouble(x ->
-                data.instance(x).value(attribute)).toArray());
-        var xxxx = Arrays.stream(Utils.sortWithNoMissingValues(Arrays.stream(indices).mapToDouble(x -> data.instance(x).value(attribute)).toArray())).map(x -> indices[x]).toArray();
 
         for(int i : Arrays.stream(Utils.sortWithNoMissingValues(Arrays.stream(indices).mapToDouble(x ->
                 data.instance(x).value(attribute)).toArray())).map(x -> indices[x]).toArray()){
@@ -164,10 +147,11 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
      */
     private int currDepth;
     private Node makeTree(int[] indices) {
-        var stats = new SufficientStatisticsXg(0, 0.0, 0.0, 0.0);
+        var stats = new SufficientStatisticsXg(0, 0.0, 0.0);
         for (int i : indices) {
             stats.updateStats(data.instance(i).classValue(),data.instance(i).weight(), true);
         }
+        // check max_depth
         if (stats.n <= 1 || this.currDepth >= max_depth) {
             return new LeafNode(this.calcWeight(stats.sumOfGrad, stats.sumOfHess));
         }
@@ -178,6 +162,7 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
                 bestSplitSpecification = SplitSpecification;
             }
         }
+        // check split quality(gain) with comparing with Gamma
         if (bestSplitSpecification.splitQuality < gamma) {
             return new LeafNode(this.calcWeight(stats.sumOfGrad, stats.sumOfHess));
         } else {
@@ -203,7 +188,7 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
                     makeTree(rightSubset.stream().mapToInt(Integer::intValue).toArray()));
         }
     }
-
+    /** randomly select attributes, for the param colsample_bynode */
     private List<Attribute> selectRanAttributes(Instances data, double colsample_bynode){
         List<Attribute> allAttributes = Collections.list(data.enumerateAttributes());
         int selectCount = (int)(allAttributes.size() * colsample_bynode);
@@ -233,6 +218,7 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
     /**
      * Builds the tree classifier by making a shallow copy of the training data and calling the
      * recursive makeTree(int[]) method.
+     * subsample is used here to pick instances randomly
      */
     public void buildClassifier(Instances trainingData) throws Exception {
         // First, use the capabilities to check whether the learning algorithm can handle the data.
