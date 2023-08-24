@@ -5,10 +5,7 @@ import weka.classifiers.RandomizableClassifier;
 import weka.core.*;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.IntStream;
 
 /**
@@ -17,13 +14,41 @@ import java.util.stream.IntStream;
  */
 public class XGBoostTree extends RandomizableClassifier implements WeightedInstancesHandler {
 
-    public double LAMBDA = 1;
-    public int MAX_DEPTH = 6;
-    public double ETA = 0.1;
-    public double GAMMA = 0;
-    public double MIN_CHILD_WEIGHT = 1;
+    /** The hyperparameters for an XGBoost tree. */
+    private double eta = 0.3;
+    @OptionMetadata(displayName = "eta", description = "eta",
+            commandLineParamName = "eta", commandLineParamSynopsis = "-eta <double>", displayOrder = 1)
+    public void setEta(double e) { eta = e; } public double getEta() {return eta; }
 
-    public double SUBSAMPLE = 0.8;
+    private double lambda = 1.0;
+    @OptionMetadata(displayName = "lambda", description = "lambda",
+            commandLineParamName = "lambda", commandLineParamSynopsis = "-lambda <double>", displayOrder = 2)
+    public void setLambda(double l) { lambda = l; } public double getLambda() {return lambda; }
+
+    private double gamma = 1.0;
+    @OptionMetadata(displayName = "gamma", description = "gamma",
+            commandLineParamName = "gamma", commandLineParamSynopsis = "-gamma <double>", displayOrder = 3)
+    public void setGamma(double l) { gamma = l; } public double getGamma() {return gamma; }
+
+    private double subsample = 0.5;
+    @OptionMetadata(displayName = "subsample", description = "subsample",
+            commandLineParamName = "subsample", commandLineParamSynopsis = "-subsample <double>", displayOrder = 4)
+    public void setSubsample(double s) { subsample = s; } public double getSubsample() {return subsample; }
+
+    private double colsample_bynode = 0.5;
+    @OptionMetadata(displayName = "colsample_bynode", description = "colsample_bynode",
+            commandLineParamName = "colsample_bynode", commandLineParamSynopsis = "-colsample_bynode <double>", displayOrder = 5)
+    public void setColSampleByNode(double c) { colsample_bynode = c; } public double getColSampleByNode() {return colsample_bynode; }
+
+    private int max_depth = 6;
+    @OptionMetadata(displayName = "max_depth", description = "max_depth",
+            commandLineParamName = "max_depth", commandLineParamSynopsis = "-max_depth <int>", displayOrder = 6)
+    public void setMaxDepth(int m) { max_depth = m; } public int getMaxDepth() {return max_depth; }
+
+    private double min_child_weight = 1.0;
+    @OptionMetadata(displayName = "min_child_weight", description = "min_child_weight",
+            commandLineParamName = "min_child_weight", commandLineParamSynopsis = "-min_child_weight <double>", displayOrder = 7)
+    public void setMinChildWeight(double w) { min_child_weight = w; } public double getMinChildWeight() {return min_child_weight; }
 
     /**
      * 随机数seed是怎么回事
@@ -72,8 +97,8 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
 
     /** Computes w* */
     private double calcWeight(double sumG, double sumH){
-//        double update = (sumG / (sumH + LAMBDA) * (-1) * ETA);
-        double update = (sumG / (sumH + LAMBDA) * ETA);
+//        double update = (sumG / (sumH + lambda) * (-1) * eta);
+        double update = (sumG / (sumH + lambda) * eta);
         return update;
     }
 
@@ -85,10 +110,10 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
      */
     private double splitQualityXg(SufficientStatisticsXg initialSufficientStatistics,
                                   SufficientStatisticsXg statsLeft, SufficientStatisticsXg statsRight) {
-//        return (statsLeft.sumOfGrad * statsLeft.sumOfGrad / (statsLeft.sumOfHess + LAMBDA)) +
-//                (statsRight.sumOfGrad * statsRight.sumOfGrad / (statsRight.sumOfHess + LAMBDA)) -
+//        return (statsLeft.sumOfGrad * statsLeft.sumOfGrad / (statsLeft.sumOfHess + lambda)) +
+//                (statsRight.sumOfGrad * statsRight.sumOfGrad / (statsRight.sumOfHess + lambda)) -
 //                ((initialSufficientStatistics.sumOfGrad * initialSufficientStatistics.sumOfGrad) /
-//                        (initialSufficientStatistics.sumOfHess + LAMBDA));
+//                        (initialSufficientStatistics.sumOfHess + lambda));
         double gleft = statsLeft.sumOfGrad;
 
         double gright = statsRight.sumOfGrad;
@@ -97,9 +122,9 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
 
         double hright = statsRight.sumOfHess;
 
-        double posgainl = (gleft * gleft) / (hleft  + LAMBDA);
-        double postgainr = (gright * gright) / (hright + LAMBDA);
-        double pregain = Math.pow((gleft + gright), 2) / (hleft + hright + LAMBDA);
+        double posgainl = (gleft * gleft) / (hleft  + lambda);
+        double postgainr = (gright * gright) / (hright + lambda);
+        double pregain = Math.pow((gleft + gright), 2) / (hleft + hright + lambda);
         double gain  = 0.5 * (posgainl + postgainr - pregain);
         return gain;
     }
@@ -151,17 +176,18 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
             stats.updateStats(data.instance(i).classValue(),data.instance(i).weight(), true);
         }
 //        if (stats.n <= 1) { return new LeafNode(stats.sum / stats.n); }
-        if (stats.n <= 1 || this.currDepth >= MAX_DEPTH) {
+        if (stats.n <= 1 || this.currDepth >= max_depth) {
             return new LeafNode(this.calcWeight(stats.sumOfGrad, stats.sumOfHess));
         }
         var bestSplitSpecification = new SplitSpecification(null, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
-        for (Attribute attribute : Collections.list(data.enumerateAttributes())) {
+//        for (Attribute attribute : Collections.list(data.enumerateAttributes())) {
+        for (Attribute attribute : selectRanAttributes(data, colsample_bynode)) {
             var SplitSpecification = findBestSplitPointXg(indices, attribute, stats);
             if (SplitSpecification.splitQuality > bestSplitSpecification.splitQuality) {
                 bestSplitSpecification = SplitSpecification;
             }
         }
-        if (bestSplitSpecification.splitQuality < GAMMA) {
+        if (bestSplitSpecification.splitQuality < gamma) {
 //            return new LeafNode(stats.sum / stats.n);
             return new LeafNode(this.calcWeight(stats.sumOfGrad, stats.sumOfHess));
         } else {
@@ -178,7 +204,7 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
             // check min_child_weight
             double leftWeight = calculateSubsetWeight(leftSubset);
             double rightWeight = calculateSubsetWeight(rightSubset);
-            if (leftWeight < MIN_CHILD_WEIGHT || rightWeight < MIN_CHILD_WEIGHT) {
+            if (leftWeight < min_child_weight || rightWeight < min_child_weight) {
                 return new LeafNode(this.calcWeight(stats.sumOfGrad, stats.sumOfHess));
             }
             this.currDepth += 1;
@@ -186,6 +212,14 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
                     makeTree(leftSubset.stream().mapToInt(Integer::intValue).toArray()),
                     makeTree(rightSubset.stream().mapToInt(Integer::intValue).toArray()));
         }
+    }
+
+    private List<Attribute> selectRanAttributes(Instances data, double colsample_bynode){
+        List<Attribute> allAttributes = Collections.list(data.enumerateAttributes());
+        int selectCount = (int)(allAttributes.size() * colsample_bynode);
+        Random random = new Random(getSeed());
+        Collections.shuffle(allAttributes, random);
+        return allAttributes.subList(0, selectCount);
     }
 
     private double calculateSubsetWeight(ArrayList<Integer> subset) {
@@ -216,8 +250,8 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
         this.data = new Instances(trainingData);
         this.currDepth = 0;
         // subsample indices
-        int sampleSize = (int)(this.data.numInstances() * SUBSAMPLE);
-        Random ran = new Random();
+        int sampleSize = (int)(this.data.numInstances() * subsample);
+        Random ran = new Random(getSeed());
         ArrayList<Integer> subIndices = new ArrayList<>();
         while(subIndices.size() < sampleSize) {
             int ranIndex = ran.nextInt(this.data.numInstances());

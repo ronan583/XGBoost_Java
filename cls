@@ -1,0 +1,32 @@
+Tester:     weka.experiment.PairedCorrectedTTester -G 4,5,6 -D 1 -R 2 -S 0.05 -result-matrix "weka.experiment.ResultMatrixPlainText -mean-prec 2 -stddev-prec 2 -col-name-width 0 -row-name-width 25 -mean-width 3 -stddev-width 2 -sig-width 1 -count-width 5 -print-col-names -print-row-names -enum-col-names"
+Analysing:  Root_relative_squared_error
+Datasets:   13
+Resultsets: 2
+Confidence: 0.05 (two tailed)
+Sorted by:  -
+Date:       24/08/23, 12:43 pm
+
+
+Dataset                   (1) sklearn. | (2) meta.
+--------------------------------------------------
+balance-scale-weka.filter(100)   36.44 |   84.93 v
+wisconsin-breast-cancer-w(100)   34.55 |   38.53  
+pima_diabetes-weka.filter(100)   93.30 |   96.23  
+ecoli-weka.filters.unsupe(100)   36.25 |   43.30  
+Glass-weka.filters.unsupe(100)   73.23 |   93.81 v
+ionosphere-weka.filters.u(100)   47.62 |   60.56 v
+iris-weka.filters.unsuper(100)    6.53 |    9.63 v
+optdigits-weka.filters.un(100)   25.70 |   41.84 v
+pendigits-weka.filters.un(100)   15.62 |   34.65 v
+segment-weka.filters.unsu(100)   12.62 |   27.46 v
+sonar-weka.filters.unsupe(100)   66.56 |   80.93 v
+vehicle-weka.filters.unsu(100)   24.78 |   38.48 v
+'vowel-weka.filters.unsup(100)   25.35 |   77.71 v
+--------------------------------------------------
+                               (v/ /*) |  (10/3/0)
+
+
+Key:
+(1) sklearn.ScikitLearnClassifier '-batch 100 -learner XGBClassifier -parameters \"gamma=1,subsample=0.5,colsample_bynode=0.5,tree_method=\\\"exact\\\"\" -py-command python -py-path default -server-name none' -6212485658537766441
+(2) meta.XGBoost '-S 1 -I 100 -W trees.XGBoostTree -- -S 1 -colsample_bynode 0.5 -eta 0.3 -gamma 1.0 -lambda 1.0 -max_depth 6 -min_child_weight 1.0 -subsample 0.5' -862299050221542512
+
