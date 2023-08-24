@@ -115,13 +115,9 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
 //                ((initialSufficientStatistics.sumOfGrad * initialSufficientStatistics.sumOfGrad) /
 //                        (initialSufficientStatistics.sumOfHess + lambda));
         double gleft = statsLeft.sumOfGrad;
-
         double gright = statsRight.sumOfGrad;
-
         double hleft = statsLeft.sumOfHess;
-
         double hright = statsRight.sumOfHess;
-
         double posgainl = (gleft * gleft) / (hleft  + lambda);
         double postgainr = (gright * gright) / (hright + lambda);
         double pregain = Math.pow((gleft + gright), 2) / (hleft + hright + lambda);
@@ -168,19 +164,14 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
      */
     private int currDepth;
     private Node makeTree(int[] indices) {
-//        var stats = new SufficientStatistics(0, 0.0, 0.0);
         var stats = new SufficientStatisticsXg(0, 0.0, 0.0, 0.0);
-//        for (int i : indices) { stats.updateStats(data.instance(i).classValue(),true); }
         for (int i : indices) {
-//            stats.updateStats(data.instance(i).classValue(),true);
             stats.updateStats(data.instance(i).classValue(),data.instance(i).weight(), true);
         }
-//        if (stats.n <= 1) { return new LeafNode(stats.sum / stats.n); }
         if (stats.n <= 1 || this.currDepth >= max_depth) {
             return new LeafNode(this.calcWeight(stats.sumOfGrad, stats.sumOfHess));
         }
         var bestSplitSpecification = new SplitSpecification(null, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
-//        for (Attribute attribute : Collections.list(data.enumerateAttributes())) {
         for (Attribute attribute : selectRanAttributes(data, colsample_bynode)) {
             var SplitSpecification = findBestSplitPointXg(indices, attribute, stats);
             if (SplitSpecification.splitQuality > bestSplitSpecification.splitQuality) {
@@ -188,7 +179,6 @@ public class XGBoostTree extends RandomizableClassifier implements WeightedInsta
             }
         }
         if (bestSplitSpecification.splitQuality < gamma) {
-//            return new LeafNode(stats.sum / stats.n);
             return new LeafNode(this.calcWeight(stats.sumOfGrad, stats.sumOfHess));
         } else {
             var leftSubset = new ArrayList<Integer>(indices.length);
