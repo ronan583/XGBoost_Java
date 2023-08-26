@@ -1,0 +1,20 @@
+Tester:     weka.experiment.PairedCorrectedTTester -G 4,5,6 -D 1 -R 2 -S 0.05 -result-matrix "weka.experiment.ResultMatrixPlainText -mean-prec 2 -stddev-prec 2 -col-name-width 0 -row-name-width 25 -mean-width 2 -stddev-width 2 -sig-width 1 -count-width 5 -print-col-names -print-row-names -enum-col-names"
+Analysing:  Root_relative_squared_error
+Datasets:   1
+Resultsets: 2
+Confidence: 0.05 (two tailed)
+Sorted by:  -
+Date:       26/08/23, 5:35 pm
+
+
+Dataset                   (1) sklearn. | (2) meta.
+--------------------------------------------------
+2dplanes                 (100)   22.84 |   53.52 v
+--------------------------------------------------
+                               (v/ /*) |   (1/0/0)
+
+
+Key:
+(1) sklearn.ScikitLearnClassifier '-batch 100 -learner XGBRegressor -parameters \"gamma=0,subsample=0.8,colsample_bynode=0.8,tree_method=\\\"exact\\\",eta=0.1\" -py-command python -py-path default -server-name none' -6212485658537766441
+(2) meta.XGBoost '-S 1 -I 100 -W trees.XGBoostTree -- -S 1 -colsample_bynode 0.8 -eta 0.1 -gamma 0.0 -lambda 1.0 -max_depth 6 -min_child_weight 1.0 -subsample 0.8' -862299050221542512
+
